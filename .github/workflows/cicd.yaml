@@ -6,9 +6,9 @@ on:
       - main
 
 env:
-  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  PROJECT_ID: devops-gke-project-496810
   GKE_CLUSTER: devops-cluster
-  GKE_REGION: asia-south1
+  GKE_LOCATION: asia-south1
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
@@ -22,44 +22,46 @@ jobs:
 
     steps:
 
-    - name: Checkout Code
-      uses: actions/checkout@v4
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-    - name: Authenticate to Google Cloud
-      uses: google-github-actions/auth@v3
-      with:
-        credentials_json: '${{ secrets.GCP_SA_KEY }}'
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v3
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
 
-    - name: Setup gcloud CLI
-      uses: google-github-actions/setup-gcloud@v3
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v3
 
-    - name: Install GKE Auth Plugin
-      run: |
-        gcloud components install gke-gcloud-auth-plugin --quiet
+      - name: Install GKE Auth Plugin
+        run: |
+          gcloud components install gke-gcloud-auth-plugin --quiet
 
-    - name: Configure Docker
-      run: |
-        gcloud auth configure-docker asia-south1-docker.pkg.dev --quiet
+      - name: Configure Docker
+        run: |
+          gcloud auth configure-docker asia-south1-docker.pkg.dev --quiet
 
-    - name: Build Docker Image
-      run: |
-        docker build -t asia-south1-docker.pkg.dev/$PROJECT_ID/docker-repo/nodejs-app:latest ./app
+      - name: Build Docker Image
+        run: |
+          docker build -t asia-south1-docker.pkg.dev/$PROJECT_ID/docker-repo/nodejs-app:latest ./app
 
-    - name: Push Docker Image
-      run: |
-        docker push asia-south1-docker.pkg.dev/$PROJECT_ID/docker-repo/nodejs-app:latest
+      - name: Push Docker Image
+        run: |
+          docker push asia-south1-docker.pkg.dev/$PROJECT_ID/docker-repo/nodejs-app:latest
 
-    - name: Get GKE Credentials
-      run: |
-        gcloud container clusters get-credentials $GKE_CLUSTER --region $GKE_REGION
+      - name: Get GKE Credentials
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: ${{ env.GKE_CLUSTER }}
+          location: ${{ env.GKE_LOCATION }}
 
-    - name: Verify Kubernetes Connection
-      run: |
-        kubectl cluster-info
-        kubectl get nodes
+      - name: Verify Kubernetes Connection
+        run: |
+          kubectl cluster-info
+          kubectl get nodes
 
-    - name: Deploy to Kubernetes
-      run: |
-        kubectl apply -f kubernetes/namespace.yaml
-        kubectl apply -f kubernetes/deployment.yaml
-        kubectl apply -f kubernetes/service.yaml
+      - name: Deploy to Kubernetes
+        run: |
+          kubectl apply -f kubernetes/namespace.yaml
+          kubectl apply -f kubernetes/deployment.yaml
+          kubectl apply -f kubernetes/service.yaml
