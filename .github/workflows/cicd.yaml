@@ -1,37 +1,66 @@
-name: Deploy to GKE
+name: CI-CD-Pipeline
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  GKE_CLUSTER: devops-cluster
+  GKE_REGION: asia-south1
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  deploy:
+  build-and-deploy:
+
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
+
     steps:
-    - name: Checkout code
+
+    - name: Checkout Code
       uses: actions/checkout@v4
 
-    # 1. Authenticate with Google Cloud
     - name: Authenticate to Google Cloud
-      uses: google-github-actions/auth@v2
+      uses: google-github-actions/auth@v3
       with:
-        credentials_json: ${{ secrets.GCP_SA_KEY }} # Ensure this secret is set in GitHub
+        credentials_json: '${{ secrets.GCP_SA_KEY }}'
 
-    # 2. Set up Cloud SDK and force install the auth plugin
-    - name: Set up Cloud SDK
-      uses: google-github-actions/setup-gcloud@v2
-      with:
-        install_components: 'gke-gcloud-auth-plugin'
+    - name: Setup Google Cloud SDK
+      uses: google-github-actions/setup-gcloud@v3
 
-    # 3. Fetch GKE credentials (this automatically configures kubectl to use the plugin)
+    - name: Install GKE Auth Plugin
+      run: |
+        gcloud components install gke-gcloud-auth-plugin --quiet
+
+    - name: Configure Docker
+      run: |
+        gcloud auth configure-docker asia-south1-docker.pkg.dev --quiet
+
+    - name: Build Docker Image
+      run: |
+        docker build -t asia-south1-docker.pkg.dev/$PROJECT_ID/docker-repo/nodejs-app:latest ./app
+
+    - name: Push Docker Image
+      run: |
+        docker push asia-south1-docker.pkg.dev/$PROJECT_ID/docker-repo/nodejs-app:latest
+
     - name: Get GKE Credentials
       uses: google-github-actions/get-gke-credentials@v2
       with:
-        cluster_name: 'devops-cluster'            # Your GKE cluster name
-        location: 'asia-south1'                # Your cluster zone or region
-        project_id: 'devops-gke-project-496810'  # Your GCP project ID
+        cluster_name: ${{ env.GKE_CLUSTER }}
+        location: ${{ env.GKE_REGION }}
 
-    # 4. Apply your Kubernetes manifests
-    - name: Deploy to GKE
+    - name: Verify Cluster Connection
+      run: |
+        kubectl get nodes
+
+    - name: Deploy to Kubernetes
       run: |
         kubectl apply -f kubernetes/namespace.yaml
+        kubectl apply -f kubernetes/deployment.yaml
+        kubectl apply -f kubernetes/service.yaml
