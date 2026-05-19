@@ -28,7 +28,7 @@ jobs:
       uses: google-github-actions/get-gke-credentials@v2
       with:
         cluster_name: 'devops-cluster'            # Your GKE cluster name
-        location: 'asia-south1-a'                # Your cluster zone or region
+        location: 'asia-south1'                # Your cluster zone or region
         project_id: 'devops-gke-project-496810'  # Your GCP project ID
 
     # 4. Apply your Kubernetes manifests
