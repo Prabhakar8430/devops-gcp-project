@@ -30,7 +30,7 @@ jobs:
       with:
         credentials_json: '${{ secrets.GCP_SA_KEY }}'
 
-    - name: Setup Google Cloud SDK
+    - name: Setup gcloud CLI
       uses: google-github-actions/setup-gcloud@v3
 
     - name: Install GKE Auth Plugin
@@ -50,13 +50,12 @@ jobs:
         docker push asia-south1-docker.pkg.dev/$PROJECT_ID/docker-repo/nodejs-app:latest
 
     - name: Get GKE Credentials
-      uses: google-github-actions/get-gke-credentials@v2
-      with:
-        cluster_name: ${{ env.GKE_CLUSTER }}
-        location: ${{ env.GKE_REGION }}
-
-    - name: Verify Cluster Connection
       run: |
+        gcloud container clusters get-credentials $GKE_CLUSTER --region $GKE_REGION
+
+    - name: Verify Kubernetes Connection
+      run: |
+        kubectl cluster-info
         kubectl get nodes
 
     - name: Deploy to Kubernetes
