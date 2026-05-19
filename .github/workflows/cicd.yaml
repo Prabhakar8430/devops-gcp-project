@@ -7,8 +7,8 @@ on:
 
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-  GKE_CLUSTER: ${{ secrets.GKE_CLUSTER }}
-  GKE_ZONE: ${{ secrets.GKE_ZONE }}
+  GKE_CLUSTER: devops-cluster
+  GKE_REGION: asia-south1
 
 jobs:
   build-and-deploy:
@@ -17,15 +17,15 @@ jobs:
 
     steps:
 
-    - name: Checkout Code
+    - name: Checkout
       uses: actions/checkout@v4
 
-    - name: Authenticate to Google Cloud
+    - name: Authenticate to GCP
       uses: google-github-actions/auth@v2
       with:
         credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-    - name: Set up Cloud SDK
+    - name: Setup Cloud SDK
       uses: google-github-actions/setup-gcloud@v2
 
     - name: Configure Docker
@@ -40,12 +40,12 @@ jobs:
       run: |
         docker push asia-south1-docker.pkg.dev/$PROJECT_ID/docker-repo/nodejs-app:latest
 
-    - name: Get GKE Credentials
+    - name: Connect GKE Cluster
       run: |
-        gcloud container clusters get-credentials $GKE_CLUSTER --region $GKE_ZONE
+        gcloud container clusters get-credentials $GKE_CLUSTER --region $GKE_REGION
 
     - name: Deploy to Kubernetes
       run: |
         kubectl apply -f kubernetes/namespace.yaml
         kubectl apply -f kubernetes/deployment.yaml
-        kubectl apply -f kubernetes/service.yamlx   
+        kubectl apply -f kubernetes/service.yaml
