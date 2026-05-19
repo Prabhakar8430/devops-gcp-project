@@ -10,6 +10,8 @@ env:
   GKE_CLUSTER: devops-cluster
   GKE_REGION: asia-south1
 
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build-and-deploy:
 
