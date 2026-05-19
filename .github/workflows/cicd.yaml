@@ -1,57 +1,37 @@
-name: CI-CD-Pipeline
+name: Deploy to GKE
 
 on:
   push:
-    branches:
-      - main
-
-env:
-  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-  GKE_CLUSTER: devops-cluster
-  GKE_REGION: asia-south1
-
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    branches: [ main ]
 
 jobs:
-  build-and-deploy:
-
+  deploy:
     runs-on: ubuntu-latest
-
-    permissions:
-      contents: read
-      id-token: write
-
     steps:
-
-    - name: Checkout Code
+    - name: Checkout code
       uses: actions/checkout@v4
 
+    # 1. Authenticate with Google Cloud
     - name: Authenticate to Google Cloud
-      uses: google-github-actions/auth@v3
+      uses: google-github-actions/auth@v2
       with:
-        credentials_json: '${{ secrets.GCP_SA_KEY }}'
+        credentials_json: ${{ secrets.GCP_SA_KEY }} # Ensure this secret is set in GitHub
 
-    - name: Setup Google Cloud SDK
-      uses: google-github-actions/setup-gcloud@v3
+    # 2. Set up Cloud SDK and force install the auth plugin
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+      with:
+        install_components: 'gke-gcloud-auth-plugin'
 
-    - name: Configure Docker
-      run: |
-        gcloud auth configure-docker asia-south1-docker.pkg.dev
+    # 3. Fetch GKE credentials (this automatically configures kubectl to use the plugin)
+    - name: Get GKE Credentials
+      uses: google-github-actions/get-gke-credentials@v2
+      with:
+        cluster_name: 'devops-cluster'            # Your GKE cluster name
+        location: 'asia-south1-a'                # Your cluster zone or region
+        project_id: 'devops-gke-project-496810'  # Your GCP project ID
 
-    - name: Build Docker Image
-      run: |
-        docker build -t asia-south1-docker.pkg.dev/$PROJECT_ID/docker-repo/nodejs-app:latest ./app
-
-    - name: Push Docker Image
-      run: |
-        docker push asia-south1-docker.pkg.dev/$PROJECT_ID/docker-repo/nodejs-app:latest
-
-    - name: Connect to GKE
-      run: |
-        gcloud container clusters get-credentials $GKE_CLUSTER --region $GKE_REGION
-
-    - name: Deploy to Kubernetes
+    # 4. Apply your Kubernetes manifests
+    - name: Deploy to GKE
       run: |
         kubectl apply -f kubernetes/namespace.yaml
-        kubectl apply -f kubernetes/deployment.yaml
-        kubectl apply -f kubernetes/service.yaml
